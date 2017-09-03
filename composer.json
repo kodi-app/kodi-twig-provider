@@ -1,0 +1,29 @@
+{
+    "name": "kodi-app/kodi-twig-provider",
+    "type": "library",
+    "description": "KodiApp Twig provider",
+    "keywords": ["framework","php","twig","kodiapp"],
+    "license": "Apache-2.0",
+    "homepage": "https://github.com/kodi-app/kodi-twig-provider",
+    "authors": [
+        {
+            "name": "Attila Nagy",
+            "email": "anagy@hit.bme.hu",
+            "role": "Author, Developer"
+        }
+    ],
+    "autoload": {
+        "psr-0": {
+            "KodiTwigProvider": "src/"
+        }
+    },
+    "require": {
+        "php": "^7.0",
+        "pimple/pimple": "^3.0",
+        "kodi-app/kodi-core": "v0.9.*",
+        "twig/twig": "v2.4.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "5.4.8"
+    }
+}
