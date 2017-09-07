@@ -58,8 +58,11 @@ class Twig
         $this->useAjax =(!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') ?  true : false;
 
         // Escape
-        $escaper = new \Twig_Extension_Escaper('html');
-        $this->twig->addExtension($escaper);
+        try {
+            $escaper = new \Twig_Extension_Escaper('html');
+            $this->twig->addExtension($escaper);
+        }
+        catch (\LogicException $exception) {}
 
         if(Application::getEnvMode() == KodiConf::ENV_DEVELOPMENT)
             $this->twig->addExtension(new Twig_Extension_Debug());
