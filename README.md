@@ -27,7 +27,7 @@ $application->run([
         [
             "class_name" => TwigServiceProvider::class,
             "parameters" => [
-                // [Mandatory] Path to directory which contains the *.twig files
+                // [Mandatory] Absolute path to directory which contains the *.twig files
                 Twig::TWIG_PATH             => PATH_BASE."/src/KodiTest/View",
                 
                 // [Optional] Relative path to page template
