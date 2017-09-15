@@ -10,12 +10,12 @@ namespace KodiTwigProvider;
 use KodiCore\Application;
 use KodiCore\Core\KodiConf;
 use KodiCore\Exception\Http\HttpInternalServerErrorException;
+use KodiTwigProvider\ContentProvider\ContentProvider;
+use Pimple\Container;
 use Twig_Extension_Debug;
 
 /**
  * Class Twig
- *
- * TODO: Add content providers
  *
  * @package KodiTwigProvider
  */
@@ -23,6 +23,7 @@ class Twig
 {
     const TWIG_PATH = "path";
     const PAGE_TEMPLATE_PATH = "page_frame_template_path";
+    const CONTENT_PROVIDERS = "content_providers";
 
     /**
      * @var array
@@ -35,27 +36,31 @@ class Twig
     private $useAjax;
 
     /**
+     * @var Container
+     */
+    private $contentProviders;
+
+    /**
      * Twig constructor.
      * @param array $configuration
      */
     public function __construct($configuration)
     {
-        //Konfiguráció betöltése
+        //Load configuration
         $this->configuration = $configuration;
-        $this->contentProviders = [];
-        if(isset($this->configuration["content_providers"])) {
-            $this->addContentProvider($this->configuration["content_providers"]);
-            unset($this->configuration["content_providers"]);
+        if(isset($this->configuration[self::CONTENT_PROVIDERS])) {
+            $this->registerContentProviders($this->configuration[self::CONTENT_PROVIDERS]);
+            unset($this->configuration[self::CONTENT_PROVIDERS]);
         }
 
-        // Twig inicializálása
+        // Twig initialization
         $loader = new \Twig_Loader_Filesystem($configuration[self::TWIG_PATH]);
         $this->twig = new \Twig_Environment($loader,[
             "debug" => Application::getEnvMode() == KodiConf::ENV_DEVELOPMENT
         ]);
 
-        // Ajax csekkolása
-        $this->useAjax =(!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') ?  true : false;
+        // Set ajax usage
+        $this->useAjax = $this->chechAjaxUsage();
 
         // Escape
         try {
@@ -72,18 +77,18 @@ class Twig
     }
 
     /**
-     * ContentProvider hozzáadása.
-     *
-     * @param ContentProvider | ContentProvider[] $contents
+     * @param $contentProviders
      */
-    public function addContentProvider($contents) {
-        if($contents == null) {
-            throw new \InvalidArgumentException("You must provide at least one content provider in contents");
-        }
-        if(is_array($contents)) {
-            $this->contentProviders = array_merge($this->contentProviders , $contents);
-        } else {
-            $this->contentProviders[] = $contents;
+    public function registerContentProviders($contentProviders): void {
+        $this->contentProviders = new Container();
+        foreach ($contentProviders as $contentProvider) {
+            $className = $contentProvider["class_name"];
+            $parameters = $contentProvider["parameters"];
+            /** @var ContentProvider $provider */
+            $provider = new $className($parameters);
+            $this->contentProviders[$provider->getKey()] = function($c) use($provider) {
+                return $provider->getValue();
+            };
         }
     }
 
@@ -105,11 +110,11 @@ class Twig
      * @param $templateName
      * @param array $parameters
      * @param bool $forceRawTemplate
-     * @param null $desiredFrameTemplate
+     * @param null $pageTemplate
      * @return string
      * @throws HttpInternalServerErrorException
      */
-    public function render($templateName, array $parameters = [], bool $forceRawTemplate = false,$desiredFrameTemplate = null) {
+    public function render($templateName, array $parameters = [], bool $forceRawTemplate = false, $pageTemplate = null) {
         // Különböző contentek betöltése
         foreach ($this->contentProviders as $contentProvider) {
             $parameters["app"][$contentProvider->getKey()] = $contentProvider->getValue();
@@ -120,8 +125,8 @@ class Twig
             if(is_array($this->configuration[self::PAGE_TEMPLATE_PATH])) {
                 $templates = $this->configuration[self::PAGE_TEMPLATE_PATH];
                 $actualRoute = Application::getInstance()->getCore()->getRouter()->getActualRoute();
-                if($desiredFrameTemplate != null) {
-                    $desiredFrame = $desiredFrameTemplate;
+                if($pageTemplate != null) {
+                    $desiredFrame = $pageTemplate;
                 }
                 elseif(isset($actualRoute["page_frame"])) {
                     $desiredFrame = Application::getInstance()->getCore()->getRouter()->getActualRoute()["page_frame"];
@@ -134,7 +139,7 @@ class Twig
                     $pageFrameName = $templates[$desiredFrame];
                 }
                 else {
-                    throw new HttpInternalServerErrorException("Undefined page_frame template path in twig. Check configuration");
+                    throw new HttpInternalServerErrorException("Undefined page_template path in twig. Check the configuration!");
                 }
             } else {
                 $pageFrameName = $this->configuration[self::PAGE_TEMPLATE_PATH];
@@ -145,10 +150,10 @@ class Twig
     }
 
     /**
-     *  Betölti a twigbe az általunk definiált függvényeket.
+     *  Loads the custom twig function.
      */
-    private function initializeBaseTwigFunction() {
-        // Development-e a környezet
+    private function initializeBaseTwigFunction(): void {
+        // Development or not
         $is_dev = new \Twig_SimpleFunction('is_dev', function(){
             return Application::getEnvMode() == KodiConf::ENV_DEVELOPMENT;
         });
@@ -160,11 +165,22 @@ class Twig
     }
 
     /**
-     * Visszaadja a belső twig környezetet.
+     * Returns with the original Twig_Environment.
+     *
      * @return \Twig_Environment
      */
-    public function getTwigEnvironment() {
+    public function getTwigEnvironment(): \Twig_Environment {
         return $this->twig;
+    }
+
+    /**
+     * @return bool
+     */
+    private function chechAjaxUsage(): bool {
+        return (
+            !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest'
+        );
     }
 
 
