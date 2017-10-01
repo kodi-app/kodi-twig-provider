@@ -48,6 +48,7 @@ class Twig
     {
         //Load configuration
         $this->configuration = $configuration;
+        $this->contentProviders = new Container();
         if(isset($this->configuration[self::CONTENT_PROVIDERS])) {
             $this->registerContentProviders($this->configuration[self::CONTENT_PROVIDERS]);
             unset($this->configuration[self::CONTENT_PROVIDERS]);
@@ -80,7 +81,6 @@ class Twig
      * @param $contentProviders
      */
     public function registerContentProviders($contentProviders): void {
-        $this->contentProviders = new Container();
         foreach ($contentProviders as $contentProvider) {
             $className = $contentProvider["class_name"];
             $parameters = $contentProvider["parameters"];
@@ -116,9 +116,8 @@ class Twig
      */
     public function render($templateName, array $parameters = [], bool $forceRawTemplate = false, $pageTemplate = null) {
         // Különböző contentek betöltése
-        foreach ($this->contentProviders as $contentProvider) {
-            $parameters["app"][$contentProvider->getKey()] = $contentProvider->getValue();
-        }
+        $parameters["app"] = $this->contentProviders;
+
         if($this->useAjax || $forceRawTemplate) {
             return $this->twig->render($templateName,$parameters);
         } else {
